@@ -49,6 +49,8 @@ namespace TownListener
 
 		public string Language { get; set; } = "en-US";
 
+		public string AliasFilePath { get; set; } 
+
 		const string ConfigFilePath = "config.json";
 
 		public static void Load()
@@ -151,6 +153,23 @@ namespace TownListener
 			{
 				aliases.Add("me", _ => AltaAPI.Client.UserClient.LoggedInUserInfo.Username);
 				aliases.Add("everyone", _ => "*");
+
+				if (!string.IsNullOrEmpty(Config.Current.AliasFilePath) && File.Exists(Config.Current.AliasFilePath))
+				{
+					LoadAliasFile();
+				}
+			}
+
+			void LoadAliasFile()
+			{
+				foreach (var line in File.ReadAllLines(Config.Current.AliasFilePath))
+				{
+					var splitLine = line.Split(',');
+
+					aliases.Add(splitLine[0], _ => splitLine[1]);
+
+					Console.WriteLine("Loaded Alias: {0} => {1}", splitLine[0], splitLine[1]);
+				}
 			}
 
 			public async Task ConnectAndListen(int serverIdentifier)
