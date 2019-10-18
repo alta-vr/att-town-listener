@@ -1,0 +1,16 @@
+#JSGF V1.0;
+grammar outputGrammar;
+
+public <command> = (<squadCommand>  | <teamCommand> );
+
+<squadCommand> = squad (formation  <formation>  [of <pluralFormation> ] | (head | move | go)  <direction>  | halt );
+
+<teamCommand> = <teamName>  (formation  <formation> );
+
+<teamName> = (alpha | bravo | charlie);
+
+<direction> = (north  | east  | south  | west  | northeast  | northwest  | southeast  | southwest );
+
+<formation> = (wedge | column | line);
+
+<pluralFormation> = (wedges  | columns  | lines );

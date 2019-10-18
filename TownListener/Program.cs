@@ -2,16 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Google.Cloud.Speech.V1;
-using Google.Apis.Auth.OAuth2;
-using Grpc.Core;
-using Grpc.Auth;
 using WebSocketSharp;
 using Alta.WebApi.Utility;
-using NAudio.Wave;
 using Alta.WebApi.Client;
 using Newtonsoft.Json;
 using System.IO;
+using System.Speech.Recognition;
+using System.Speech.Recognition.SrgsGrammar;
+using System.Xml;
+using System.Globalization;
+using System.Threading;
 
 namespace TownListener
 {
@@ -41,7 +41,13 @@ namespace TownListener
 
 		public string Password { get; set; }
 
-		public string GoogleCredentialsPath { get; set; }
+		public string GrammarFilePath { get; set; } = "grammar.xml";
+
+		public float? OverrideConfidence { get; set; }
+
+		public bool ConsoleMode { get; set; }
+
+		public string Language { get; set; } = "en-US";
 
 		const string ConfigFilePath = "config.json";
 
@@ -52,7 +58,7 @@ namespace TownListener
 
 		public void Save()
 		{
-			File.WriteAllText(ConfigFilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+			File.WriteAllText(ConfigFilePath, JsonConvert.SerializeObject(this, Newtonsoft.Json.Formatting.Indented));
 		}
 	}
 
@@ -134,9 +140,12 @@ namespace TownListener
 			static int count;
 
 			WebSocket webSocket;
-			WaveInEvent voiceRecorder;
-			SpeechClient.StreamingRecognizeStream streamingCall;
+
+			SpeechRecognitionEngine recognizer;
+
 			Dictionary<string, Func<string, string>> aliases = new Dictionary<string, Func<string, string>>();
+
+			CancellationTokenSource cancellation = new CancellationTokenSource();
 
 			public TownListener()
 			{
@@ -148,13 +157,13 @@ namespace TownListener
 			{
 				await ConnectToServer(serverIdentifier);
 
-				await ConnectToGoogleAPI();
+				SetupVoiceRecognizer();
 
-				StartHandlingVoiceRecognition();
-
-				StartRecordingVoice();
+				StartVoiceRecognition();
 
 				Console.WriteLine("Start Speaking, say quit to stop the application");
+
+				await Task.Delay(-1, cancellation.Token);
 			}
 
 			async Task ConnectToServer(int serverIdentifier)
@@ -181,73 +190,76 @@ namespace TownListener
 				webSocket.Send(joinResult.Token.Write());
 			}
 
-			public async Task Stop()
+			void StartVoiceRecognition()
 			{
-				Console.WriteLine("Stopping...");
+				if (!Config.Current.ConsoleMode)
+				{
+					recognizer.SetInputToDefaultAudioDevice();
+					recognizer.RecognizeAsync(RecognizeMode.Multiple);
+				}
+				else
+				{
+					Console.WriteLine("Starting in console mode, enter phrases in the console:");
 
-				StopRecordingVoice();
-
-				await streamingCall.WriteCompleteAsync();
-			}
-
-			async Task ConnectToGoogleAPI()
-			{
-				GoogleCredential cred = GoogleCredential.FromFile(Config.Current.GoogleCredentialsPath);
-
-				Channel channel = new Channel(
-					SpeechClient.DefaultEndpoint.Host,
-					SpeechClient.DefaultEndpoint.Port,
-					cred.ToChannelCredentials());
-
-				SpeechClient speech = SpeechClient.Create(channel);
-
-				streamingCall = speech.StreamingRecognize();
-
-				// Write the initial request with the config.
-				await streamingCall.WriteAsync(
-					new StreamingRecognizeRequest()
+					Task.Run(() =>
 					{
-						StreamingConfig = new StreamingRecognitionConfig()
+						while (true)
 						{
-							Config = new RecognitionConfig()
+							var result = recognizer.EmulateRecognize(Console.ReadLine());
+
+							if (result != null)
 							{
-								Encoding =
-								RecognitionConfig.Types.AudioEncoding.Linear16,
-								SampleRateHertz = 16000,
-								LanguageCode = "en",
-							},
-							InterimResults = true,
+								Console.WriteLine(result.Text);
+							}
 						}
 					});
+				}
 			}
 
-			void StopRecordingVoice()
+			void SetupVoiceRecognizer()
 			{
-				voiceRecorder.DataAvailable -= HandleAudioData;
-				voiceRecorder.StopRecording();
-			}
+				recognizer = new SpeechRecognitionEngine(new CultureInfo(Config.Current.Language));
 
-			void StartHandlingVoiceRecognition()
-			{
-				Task.Run(async () =>
+				// Create and load a dictation grammar.  
+				//recognizer.LoadGrammar(new DictationGrammar());
+
+				string filePath = Config.Current.GrammarFilePath;
+
+				SrgsDocument doc = new SrgsDocument(filePath);
+
+				Grammar grammar = new Grammar(doc);
+
+				Console.WriteLine("Loaded Grammar: {0}", grammar.Name);
+
+				recognizer.LoadGrammar(grammar);
+
+				recognizer.SpeechRecognized += RecognizedSpeech;
+
+				if (Config.Current.OverrideConfidence.HasValue)
 				{
-					while (await streamingCall.ResponseStream.MoveNext())
-					{
-						foreach (var result in streamingCall.ResponseStream.Current.Results)
-						{
-							if (result.IsFinal)
-							{
-								var bestMatch = result.Alternatives.FirstOrDefault();
+					recognizer.SpeechRecognitionRejected += RejectedSpeech;
+				}
+			}
 
-								HandleRecognisedVoice(bestMatch.Transcript);
-							}
-							else
-							{
-								//Console.WriteLine("Not final");
-							}
-						}
-					}
-				});
+			void RecognizedSpeech(object sender, SpeechRecognizedEventArgs e)
+			{
+				string text = e.Result.Text;
+
+				HandleRecognisedVoice(text);
+			}
+
+			void RejectedSpeech(object sender, SpeechRecognitionRejectedEventArgs e)
+			{
+				string text = e.Result.Text;
+
+				if (e.Result.Confidence > Config.Current.OverrideConfidence.Value)
+				{
+					HandleRecognisedVoice(text);
+				}
+				else
+				{
+					Console.WriteLine("Failed recognizing phrase: {0}, confidence: {1}", text, e.Result.Confidence);
+				}
 			}
 
 			void HandleRecognisedVoice(string text)
@@ -256,15 +268,16 @@ namespace TownListener
 
 				if (lowered == "quit")
 				{
-					_ = Stop();
+					Stop();
+
 					return;
 				}
 
 				string processed = PreProcessVoice(lowered);
 
-				string message = "{{\"id\":{0},\"content\":\"{1}\"}}";
-
 				Console.WriteLine("Raw Speech: {0} converted: {1}", text, processed);
+
+				string message = "{{\"id\":{0},\"content\":\"{1}\"}}";
 
 				string data = string.Format(message, count++, processed);
 
@@ -295,27 +308,21 @@ namespace TownListener
 				return string.Join(" ", words);
 			}
 
-			void StartRecordingVoice()
+			public void Stop()
 			{
-				voiceRecorder = new WaveInEvent
-				{
-					DeviceNumber = 0,
-					WaveFormat = new WaveFormat(16000, 1)
-				};
+				Console.WriteLine("Stopping...");
 
-				voiceRecorder.DataAvailable += HandleAudioData;
+				StopRecordingVoice();
 
-				voiceRecorder.StartRecording();
+				cancellation.Cancel();
 			}
 
-			void HandleAudioData(object sender, WaveInEventArgs args)
+			void StopRecordingVoice()
 			{
-				streamingCall.WriteAsync(
-					new StreamingRecognizeRequest()
-					{
-						AudioContent = Google.Protobuf.ByteString
-							.CopyFrom(args.Buffer, 0, args.BytesRecorded)
-					}).Wait();
+				recognizer.SpeechRecognitionRejected -= RejectedSpeech;
+				recognizer.SpeechRecognized -= RecognizedSpeech;
+
+				recognizer.Dispose();
 			}
 		}
 	}
