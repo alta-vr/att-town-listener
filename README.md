@@ -11,8 +11,9 @@ Create config.json file in the same directory as the exe containing
 	"Username":"user",
 	"Password":"pw",
 	"GrammarFilePath": "grammar.xml",
-    "ConsoleMode": false,
-    "Language": "en-US"
+	"ConsoleMode": false,
+	"Language": "en-US",
+	"OverrideConfidence": 0.15,
 }
 ```
 
@@ -20,7 +21,7 @@ Create config.json file in the same directory as the exe containing
 GrammarFilePath: The file path of the grammar file. This defines all possible phrases that can be recognized
 ConsoleMode: Type your commands in the console instead of using speech to text (useful for debugging)
 Language: The language to use when recognizing speech. This needs to be installed on your computer first. Go to Windows Settings > Time & Language > Language and "Add a preferred Language" after its added make sure it has the voice voice recognition symbol
-
+OverrideConfidence: Leave out or null if you want to leave it at confidence 1. Confidence is the value the speech recognition assigns a given phrase from 0 to 1. 1 being very sure its the phrase, 0 being it has no clue. If you voice detection is a bit buggy set this to a low number. Just be aware it will start picking up things incorrectly more often.
 Message Timo in the ATT-Meta Discord for any questions
 
 **TODO:**
