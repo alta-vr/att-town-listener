@@ -69,6 +69,8 @@ namespace TownListener
 
 	class Program
 	{
+		public static System.Timers.Timer timer;
+
 		public static TownListener listener;
 
 
@@ -106,9 +108,21 @@ namespace TownListener
 			}
 		}
 
+		private static void onTimer(Object Source, System.Timers.ElapsedEventArgs e)
+        {
+			listener.HandleRecognisedVoice("player message * Server is Still Alive");
+
+		}
 		static async Task Run()
 		{
 			await LogIntoAlta();
+
+			timer = new System.Timers.Timer(1200);
+
+			timer.Elapsed += onTimer;
+			timer.AutoReset = true;
+			timer.Enabled = true;
+
 
 			string path = Config.Current.FilePath.Replace("%20", " ");
 			FileSystemWatcher watcher = new FileSystemWatcher(path);
