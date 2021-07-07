@@ -117,7 +117,7 @@ namespace TownListener
 		{
 			await LogIntoAlta();
 
-			timer = new System.Timers.Timer(1200);
+			timer = new System.Timers.Timer(120000);
 
 			timer.Elapsed += onTimer;
 			timer.AutoReset = true;
