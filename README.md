@@ -1,3 +1,5 @@
+Work in progress to interface with MIU for the purpose of accepting Twitch chat command
+
 # Town-Listener
 Voice Commands via the Websocket console
 
