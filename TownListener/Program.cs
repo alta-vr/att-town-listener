@@ -7,11 +7,12 @@ using Alta.WebApi.Utility;
 using Alta.WebApi.Client;
 using Newtonsoft.Json;
 using System.IO;
-using System.Speech.Recognition;
-using System.Speech.Recognition.SrgsGrammar;
-using System.Xml;
-using System.Globalization;
+//using System.Speech.Recognition;
+//using System.Speech.Recognition.SrgsGrammar;
+//using System.Xml;
+//using System.Globalization;
 using System.Threading;
+
 
 namespace TownListener
 {
@@ -49,7 +50,9 @@ namespace TownListener
 
 		public string Language { get; set; } = "en-US";
 
-		public string AliasFilePath { get; set; } 
+		public string FilePath { get; set; }
+
+		public string AliasFilePath { get; set; }
 
 		const string ConfigFilePath = "config.json";
 
@@ -66,15 +69,69 @@ namespace TownListener
 
 	class Program
 	{
+		public static TownListener listener;
+
+
 		public static void Main(string[] args)
-		{
+		{			
 			Run().GetAwaiter().GetResult();
+		}
+
+		private static void OnChanged(object sender, FileSystemEventArgs e)
+		{
+			if (e.ChangeType != WatcherChangeTypes.Changed)
+			{
+				return;
+			}
+			Console.WriteLine($"Changed: {e.FullPath}");
+
+			using (StreamReader fs = new StreamReader(e.FullPath))
+			{
+				string fullfile = fs.ReadToEnd();
+
+				listener.HandleRecognisedVoice(fullfile);
+			}
+		}
+		private static void OnError(object sender, System.IO.ErrorEventArgs e) => PrintException(e.GetException());
+
+		private static void PrintException(Exception ex)
+		{
+			if (ex != null)
+			{
+				Console.WriteLine($"Message: {ex.Message}");
+				Console.WriteLine("Stacktrace:");
+				Console.WriteLine(ex.StackTrace);
+				Console.WriteLine();
+				PrintException(ex.InnerException);
+			}
 		}
 
 		static async Task Run()
 		{
 			await LogIntoAlta();
 
+			string path = Config.Current.FilePath.Replace("%20", " ");
+			FileSystemWatcher watcher = new FileSystemWatcher(path);
+			
+				watcher.NotifyFilter = NotifyFilters.Attributes
+									 | NotifyFilters.CreationTime
+									 | NotifyFilters.DirectoryName
+									 | NotifyFilters.FileName
+									 | NotifyFilters.LastAccess
+									 | NotifyFilters.LastWrite
+									 | NotifyFilters.Security
+									 | NotifyFilters.Size;
+
+				watcher.Changed += OnChanged;
+				watcher.Error += OnError;
+
+				watcher.Filter = "*.txt";
+				watcher.IncludeSubdirectories = true;
+				watcher.EnableRaisingEvents = true;
+
+				Console.WriteLine("Press enter to exit.");
+				//Console.ReadLine();
+			
 			while (true)
 			{
 				var servers = (await AltaAPI.Client.ServerClient.GetOnlineServersAsync()).ToArray();
@@ -98,7 +155,7 @@ namespace TownListener
 					serverNumber = servers[serverNumber].Identifier;
 				}
 
-				TownListener listener = new TownListener();
+				listener = new TownListener();
 
 				try
 				{
@@ -143,7 +200,7 @@ namespace TownListener
 
 			WebSocket webSocket;
 
-			SpeechRecognitionEngine recognizer;
+			//SpeechRecognitionEngine recognizer;
 
 			Dictionary<string, Func<string, string>> aliases = new Dictionary<string, Func<string, string>>();
 
@@ -176,9 +233,9 @@ namespace TownListener
 			{
 				await ConnectToServer(serverIdentifier);
 
-				SetupVoiceRecognizer();
+				//SetupVoiceRecognizer();
 
-				StartVoiceRecognition();
+				//StartVoiceRecognition();
 
 				Console.WriteLine("Start Speaking, say quit to stop the application");
 
@@ -213,8 +270,8 @@ namespace TownListener
 			{
 				if (!Config.Current.ConsoleMode)
 				{
-					recognizer.SetInputToDefaultAudioDevice();
-					recognizer.RecognizeAsync(RecognizeMode.Multiple);
+					//recognizer.SetInputToDefaultAudioDevice();
+					//recognizer.RecognizeAsync(RecognizeMode.Multiple);
 				}
 				else
 				{
@@ -222,66 +279,66 @@ namespace TownListener
 
 					Task.Run(() =>
 					{
-						while (true)
-						{
-							var result = recognizer.EmulateRecognize(Console.ReadLine());
+						//while (true)
+						//{
+						//var result = recognizer.EmulateRecognize(Console.ReadLine());
 
-							if (result != null)
-							{
-								Console.WriteLine(result.Text);
-							}
-						}
+						//if (result != null)
+						//{
+						//Console.WriteLine(result.Text);
+						//}
+						//}
 					});
 				}
 			}
 
 			void SetupVoiceRecognizer()
 			{
-				recognizer = new SpeechRecognitionEngine(new CultureInfo(Config.Current.Language));
+				//recognizer = new SpeechRecognitionEngine(new CultureInfo(Config.Current.Language));
 
 				// Create and load a dictation grammar.  
 				//recognizer.LoadGrammar(new DictationGrammar());
 
-				string filePath = Config.Current.GrammarFilePath;
+				//string filePath = Config.Current.GrammarFilePath;
 
-				SrgsDocument doc = new SrgsDocument(filePath);
+				//SrgsDocument doc = new SrgsDocument(filePath);
 
-				Grammar grammar = new Grammar(doc);
+				//Grammar grammar = new Grammar(doc);
 
-				Console.WriteLine("Loaded Grammar: {0}", grammar.Name);
+				//Console.WriteLine("Loaded Grammar: {0}", grammar.Name);
 
-				recognizer.LoadGrammar(grammar);
+				//recognizer.LoadGrammar(grammar);
 
-				recognizer.SpeechRecognized += RecognizedSpeech;
+				//recognizer.SpeechRecognized += RecognizedSpeech;
 
-				if (Config.Current.OverrideConfidence.HasValue)
-				{
-					recognizer.SpeechRecognitionRejected += RejectedSpeech;
-				}
+				//if (Config.Current.OverrideConfidence.HasValue)
+				//{
+				//recognizer.SpeechRecognitionRejected += RejectedSpeech;
+				//}
 			}
 
-			void RecognizedSpeech(object sender, SpeechRecognizedEventArgs e)
-			{
-				string text = e.Result.Text;
+			//void RecognizedSpeech(object sender, SpeechRecognizedEventArgs e)
+			//{
+			//	string text = e.Result.Text;
 
-				HandleRecognisedVoice(text);
-			}
+			//	HandleRecognisedVoice(text);
+			//}
 
-			void RejectedSpeech(object sender, SpeechRecognitionRejectedEventArgs e)
-			{
-				string text = e.Result.Text;
+			//void RejectedSpeech(object sender, SpeechRecognitionRejectedEventArgs e)
+			//{
+			//	string text = e.Result.Text;
 
-				if (e.Result.Confidence > Config.Current.OverrideConfidence.Value)
-				{
-					HandleRecognisedVoice(text);
-				}
-				else
-				{
-					Console.WriteLine("Failed recognizing phrase: {0}, confidence: {1}", text, e.Result.Confidence);
-				}
-			}
+			//	if (e.Result.Confidence > Config.Current.OverrideConfidence.Value)
+			//	{
+			//		HandleRecognisedVoice(text);
+			//	}
+			//	else
+			//	{
+			//		Console.WriteLine("Failed recognizing phrase: {0}, confidence: {1}", text, e.Result.Confidence);
+			//	}
+			//}
 
-			void HandleRecognisedVoice(string text)
+			public void HandleRecognisedVoice(string text)
 			{
 				string lowered = text.ToLowerInvariant();
 
@@ -331,18 +388,18 @@ namespace TownListener
 			{
 				Console.WriteLine("Stopping...");
 
-				StopRecordingVoice();
+				//StopRecordingVoice();
 
 				cancellation.Cancel();
 			}
 
-			void StopRecordingVoice()
-			{
-				recognizer.SpeechRecognitionRejected -= RejectedSpeech;
-				recognizer.SpeechRecognized -= RecognizedSpeech;
+			//void StopRecordingVoice()
+			//{
+			//	recognizer.SpeechRecognitionRejected -= RejectedSpeech;
+			//	recognizer.SpeechRecognized -= RecognizedSpeech;
 
-				recognizer.Dispose();
-			}
+			//	recognizer.Dispose();
+			//}
 		}
 	}
 }
