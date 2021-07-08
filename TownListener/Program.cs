@@ -110,7 +110,7 @@ namespace TownListener
 
 		private static void onTimer(Object Source, System.Timers.ElapsedEventArgs e)
         {
-			listener.HandleRecognisedVoice("player message * Server is Still Alive");
+			listener.HandleRecognisedVoice("player message pixelbeard \'Server is Still Alive\' 6");
 
 		}
 		static async Task Run()
