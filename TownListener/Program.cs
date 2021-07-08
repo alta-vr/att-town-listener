@@ -73,6 +73,8 @@ namespace TownListener
 
 		public static TownListener listener;
 
+		public static string lastCommand = "";
+
 
 		public static void Main(string[] args)
 		{			
@@ -85,14 +87,22 @@ namespace TownListener
 			{
 				return;
 			}
-			Console.WriteLine($"Changed: {e.FullPath}");
 
-			using (StreamReader fs = new StreamReader(e.FullPath))
+
+			Thread.Sleep(400);
+
+			string fullFile = File.ReadAllText(e.FullPath);
+
+			if (lastCommand != fullFile)
 			{
-				string fullfile = fs.ReadToEnd();
+				lastCommand = fullFile;
 
-				listener.HandleRecognisedVoice(fullfile);
+				Console.WriteLine($"Changed: {e.FullPath}");
+
+				listener.HandleRecognisedVoice(fullFile);
 			}
+
+
 		}
 		private static void OnError(object sender, System.IO.ErrorEventArgs e) => PrintException(e.GetException());
 
@@ -126,15 +136,17 @@ namespace TownListener
 
 			string path = Config.Current.FilePath.Replace("%20", " ");
 			FileSystemWatcher watcher = new FileSystemWatcher(path);
-			
-				watcher.NotifyFilter = NotifyFilters.Attributes
-									 | NotifyFilters.CreationTime
-									 | NotifyFilters.DirectoryName
-									 | NotifyFilters.FileName
-									 | NotifyFilters.LastAccess
-									 | NotifyFilters.LastWrite
-									 | NotifyFilters.Security
-									 | NotifyFilters.Size;
+
+			//watcher.NotifyFilter = NotifyFilters.Attributes
+			//					 | NotifyFilters.CreationTime
+			//					 | NotifyFilters.DirectoryName
+			//					 | NotifyFilters.FileName
+			//					 | NotifyFilters.LastAccess
+			//					 | NotifyFilters.LastWrite
+			//					 | NotifyFilters.Security
+			//					 | NotifyFilters.Size;
+
+			watcher.NotifyFilter = NotifyFilters.LastWrite;
 
 				watcher.Changed += OnChanged;
 				watcher.Error += OnError;
