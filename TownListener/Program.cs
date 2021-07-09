@@ -10,7 +10,7 @@ using System.IO;
 using System.Threading;
 
 
-namespace TownListener
+namespace TownStreamer
 {
 	public class Config
 	{
@@ -58,7 +58,7 @@ namespace TownListener
 	{
 		public static System.Timers.Timer timer;
 
-		public static TownListener listener;
+		public static TownStreamer listener;
 
 		public static string lastCommand = "";
 
@@ -165,7 +165,7 @@ namespace TownListener
 					serverNumber = servers[serverNumber].Identifier;
 				}
 
-				listener = new TownListener();
+				listener = new TownStreamer();
 
 				try
 				{
@@ -204,7 +204,7 @@ namespace TownListener
 			public static IHighLevelApiClient Client { get; } = HighLevelApiClientFactory.CreateHighLevelClient();
 		}
 
-		public class TownListener
+		public class TownStreamer
 		{
 			static int count;
 
