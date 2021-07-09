@@ -7,10 +7,6 @@ using Alta.WebApi.Utility;
 using Alta.WebApi.Client;
 using Newtonsoft.Json;
 using System.IO;
-//using System.Speech.Recognition;
-//using System.Speech.Recognition.SrgsGrammar;
-//using System.Xml;
-//using System.Globalization;
 using System.Threading;
 
 
@@ -42,17 +38,8 @@ namespace TownListener
 
 		public string Password { get; set; }
 
-		public string GrammarFilePath { get; set; } = "grammar.xml";
-
-		public float? OverrideConfidence { get; set; }
-
-		public bool ConsoleMode { get; set; }
-
-		public string Language { get; set; } = "en-US";
-
 		public string FilePath { get; set; }
 
-		public string AliasFilePath { get; set; }
 
 		const string ConfigFilePath = "config.json";
 
@@ -99,7 +86,7 @@ namespace TownListener
 
 				Console.WriteLine($"Changed: {e.FullPath}");
 
-				listener.HandleRecognisedVoice(fullFile);
+				listener.HandleServerCommand(fullFile);
 			}
 
 
@@ -120,7 +107,7 @@ namespace TownListener
 
 		private static void onTimer(Object Source, System.Timers.ElapsedEventArgs e)
         {
-			listener.HandleRecognisedVoice("player message pixelbeard \'Server is Still Alive\' 6");
+			listener.HandleServerCommand("player message pixelbeard \'Server is Still Alive\' 6");
 
 		}
 		static async Task Run()
@@ -154,9 +141,6 @@ namespace TownListener
 				watcher.Filter = "*.txt";
 				watcher.IncludeSubdirectories = true;
 				watcher.EnableRaisingEvents = true;
-
-				Console.WriteLine("Press enter to exit.");
-				//Console.ReadLine();
 			
 			while (true)
 			{
@@ -226,44 +210,15 @@ namespace TownListener
 
 			WebSocket webSocket;
 
-			//SpeechRecognitionEngine recognizer;
-
-			Dictionary<string, Func<string, string>> aliases = new Dictionary<string, Func<string, string>>();
 
 			CancellationTokenSource cancellation = new CancellationTokenSource();
 
-			public TownListener()
-			{
-				aliases.Add("me", _ => AltaAPI.Client.UserClient.LoggedInUserInfo.Username);
-				aliases.Add("everyone", _ => "*");
-
-				if (!string.IsNullOrEmpty(Config.Current.AliasFilePath) && File.Exists(Config.Current.AliasFilePath))
-				{
-					LoadAliasFile();
-				}
-			}
-
-			void LoadAliasFile()
-			{
-				foreach (var line in File.ReadAllLines(Config.Current.AliasFilePath))
-				{
-					var splitLine = line.Split(',');
-
-					aliases.Add(splitLine[0], _ => splitLine[1]);
-
-					Console.WriteLine("Loaded Alias: {0} => {1}", splitLine[0], splitLine[1]);
-				}
-			}
 
 			public async Task ConnectAndListen(int serverIdentifier)
 			{
 				await ConnectToServer(serverIdentifier);
 
-				//SetupVoiceRecognizer();
-
-				//StartVoiceRecognition();
-
-				Console.WriteLine("Start Speaking, say quit to stop the application");
+				Console.WriteLine("Listening to file change for commands");
 
 				await Task.Delay(-1, cancellation.Token);
 			}
@@ -292,79 +247,8 @@ namespace TownListener
 				webSocket.Send(joinResult.Token.Write());
 			}
 
-			void StartVoiceRecognition()
-			{
-				if (!Config.Current.ConsoleMode)
-				{
-					//recognizer.SetInputToDefaultAudioDevice();
-					//recognizer.RecognizeAsync(RecognizeMode.Multiple);
-				}
-				else
-				{
-					Console.WriteLine("Starting in console mode, enter phrases in the console:");
 
-					Task.Run(() =>
-					{
-						//while (true)
-						//{
-						//var result = recognizer.EmulateRecognize(Console.ReadLine());
-
-						//if (result != null)
-						//{
-						//Console.WriteLine(result.Text);
-						//}
-						//}
-					});
-				}
-			}
-
-			void SetupVoiceRecognizer()
-			{
-				//recognizer = new SpeechRecognitionEngine(new CultureInfo(Config.Current.Language));
-
-				// Create and load a dictation grammar.  
-				//recognizer.LoadGrammar(new DictationGrammar());
-
-				//string filePath = Config.Current.GrammarFilePath;
-
-				//SrgsDocument doc = new SrgsDocument(filePath);
-
-				//Grammar grammar = new Grammar(doc);
-
-				//Console.WriteLine("Loaded Grammar: {0}", grammar.Name);
-
-				//recognizer.LoadGrammar(grammar);
-
-				//recognizer.SpeechRecognized += RecognizedSpeech;
-
-				//if (Config.Current.OverrideConfidence.HasValue)
-				//{
-				//recognizer.SpeechRecognitionRejected += RejectedSpeech;
-				//}
-			}
-
-			//void RecognizedSpeech(object sender, SpeechRecognizedEventArgs e)
-			//{
-			//	string text = e.Result.Text;
-
-			//	HandleRecognisedVoice(text);
-			//}
-
-			//void RejectedSpeech(object sender, SpeechRecognitionRejectedEventArgs e)
-			//{
-			//	string text = e.Result.Text;
-
-			//	if (e.Result.Confidence > Config.Current.OverrideConfidence.Value)
-			//	{
-			//		HandleRecognisedVoice(text);
-			//	}
-			//	else
-			//	{
-			//		Console.WriteLine("Failed recognizing phrase: {0}, confidence: {1}", text, e.Result.Confidence);
-			//	}
-			//}
-
-			public void HandleRecognisedVoice(string text)
+			public void HandleServerCommand(string text)
 			{
 				string lowered = text.ToLowerInvariant();
 
@@ -375,9 +259,9 @@ namespace TownListener
 					return;
 				}
 
-				string processed = PreProcessVoice(lowered);
+				string processed = lowered;
 
-				Console.WriteLine("Raw Speech: {0} converted: {1}", text, processed);
+				Console.WriteLine("Sent Command: {0}", processed);
 
 				string message = "{{\"id\":{0},\"content\":\"{1}\"}}";
 
@@ -386,46 +270,13 @@ namespace TownListener
 				webSocket.Send(data);
 			}
 
-			string PreProcessVoice(string text)
-			{
-				bool wasModified = false;
-
-				string[] words = text.Split(' ');
-
-				for (int i = 0; i < words.Length; i++)
-				{
-					if (aliases.TryGetValue(words[i], out Func<string, string> convert))
-					{
-						words[i] = convert(words[i]);
-
-						wasModified = true;
-					}
-				}
-
-				if (!wasModified)
-				{
-					return text;
-				}
-
-				return string.Join(" ", words);
-			}
-
 			public void Stop()
 			{
 				Console.WriteLine("Stopping...");
 
-				//StopRecordingVoice();
 
 				cancellation.Cancel();
 			}
-
-			//void StopRecordingVoice()
-			//{
-			//	recognizer.SpeechRecognitionRejected -= RejectedSpeech;
-			//	recognizer.SpeechRecognized -= RecognizedSpeech;
-
-			//	recognizer.Dispose();
-			//}
 		}
 	}
 }
