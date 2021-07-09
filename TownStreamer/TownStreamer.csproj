@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{E431D37F-691D-46B9-9F26-8FE6E7512648}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>TownListener</RootNamespace>
-    <AssemblyName>TownListener</AssemblyName>
+    <RootNamespace>TownStreamer</RootNamespace>
+    <AssemblyName>TownStreamer</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
