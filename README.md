@@ -1,6 +1,6 @@
 Work in progress to interface with MIU for the purpose of accepting Twitch chat command
 
-# Town-Listener
+# Town-Streamer
 Streaming software Bot commands via the Websocket console
 
 Listen for commands from a text file (Controlled by another software like MixItUp, Firebot, streamdeck etc,) and foward to a Township Tale Server.
@@ -27,4 +27,4 @@ Create a config.json file in the same directory as the exe containing the follow
 
 Message Pixelbeard in the ATT-Meta Discord for any questions (https://discord.gg/YABBUp)
 
-Basis of the code by Timo
+Basis of the code from Town-Listener by Timo
