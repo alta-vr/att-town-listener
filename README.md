@@ -1,6 +1,11 @@
 # Town-Listener
 Voice Commands via the Websocket console
 
+## UNSUPPORTED PACKAGE
+This repo hasnt been worked on for several years and there is no official support from Alta
+
+## About
+
 Uses the Windows Speech to Text API to send voice commands to a Township Tale Server.
 
 Written in C#. Use Visual Studio to build it or download the latest release
@@ -44,5 +49,3 @@ NOTE: All words that appear on the left side of the alias need to also occur in 
 - Support phrase aliasing so that `go go danger chicken` => `spawn me spriggull`
 - Support for inserting quotes, needed when spawning prefabs that contain spaces in their name
 - Meta commands such as stop listening or a start word so that only phrases starting with the word are processed
-
-Message Timo in the ATT-Meta Discord for any questions (https://discord.gg/YABBUp)
